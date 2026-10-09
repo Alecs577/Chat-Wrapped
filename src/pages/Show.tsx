@@ -1,5 +1,6 @@
+import gsap from "gsap";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { CARD_BG, CoverShareCard } from "../components/ShareCards";
 import { downloadNode, slug } from "../lib/share";
@@ -30,6 +31,7 @@ export function Show() {
   const touchX = useRef<number | null>(null);
   const coverRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const gsapCtx = useRef<gsap.Context | null>(null);
 
   const slides = useMemo(() => {
     if (!data) return [];
@@ -62,9 +64,51 @@ export function Show() {
     return list;
   }, [data]);
 
+  const attachCard = useCallback((node: HTMLDivElement | null) => {
+    gsapCtx.current?.revert();
+    gsapCtx.current = null;
+    if (!node) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    gsapCtx.current = gsap.context(() => {
+      const glow = node.querySelector(".show-slide-glow");
+      if (glow) {
+        gsap.fromTo(
+          glow,
+          { rotate: -16, scale: 0.82, opacity: 0.35 },
+          { rotate: 10, scale: 1, opacity: 1, duration: 0.9, ease: "power2.out" }
+        );
+      }
+      const bits = node.querySelectorAll(".slide > *");
+      if (bits.length) {
+        gsap.fromTo(
+          bits,
+          { y: 22, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.48, stagger: 0.055, ease: "power3.out", delay: 0.08 }
+        );
+      }
+    }, node);
+  }, []);
+
   useEffect(() => {
     rootRef.current?.focus();
+    return () => {
+      gsapCtx.current?.revert();
+    };
   }, []);
+
+  useLayoutEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const fill = rootRef.current?.querySelector<HTMLElement>(".show-progress i.on span");
+    if (!fill) return;
+    const tween = gsap.fromTo(
+      fill,
+      { scaleX: 0 },
+      { scaleX: 1, duration: 0.42, ease: "power2.out", transformOrigin: "left center" }
+    );
+    return () => {
+      tween.kill();
+    };
+  }, [index]);
 
   if (!data) return null;
   const go = (next: number) => {
@@ -144,12 +188,14 @@ export function Show() {
             <motion.div
               className="show-slide"
               key={slides[index].id}
+              ref={attachCard}
               custom={dir}
               initial={{ opacity: 0, x: dir * 56, scale: 0.97, filter: "blur(8px)" }}
               animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
               exit={{ opacity: 0, x: dir * -32, scale: 0.985, filter: "blur(4px)" }}
               transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
             >
+              <div className="show-slide-glow" aria-hidden="true" />
               {slides[index].node(props)}
             </motion.div>
           </AnimatePresence>

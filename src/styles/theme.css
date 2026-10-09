@@ -622,6 +622,7 @@ nav a:hover, nav a:focus, nav button:hover, nav button:focus { color: var(--lime
   display: block;
   border-radius: inherit;
   background: var(--lime);
+  transform-origin: left center;
 }
 .show-progress i.on { background: #343430; }
 .show-bar { width: min(100%, 1200px); margin: 0 auto; }
@@ -636,8 +637,7 @@ nav a:hover, nav a:focus, nav button:hover, nav button:focus { color: var(--lime
   background: linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012));
   box-shadow: 0 28px 90px rgba(0,0,0,0.28);
 }
-.show-slide::after {
-  content: "";
+.show-slide-glow {
   position: absolute;
   z-index: -1;
   width: 300px;
