@@ -1,18 +1,32 @@
 import { useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
-import { AwardShareCard, CoverShareCard, RankShareCard } from "../components/ShareCards";
+import { AwardShareCard, CARD_BG, CoverShareCard, RankShareCard } from "../components/ShareCards";
 import { toast } from "../components/Toast";
 import { participantAwards } from "../lib/awards";
-import { dateIt, fmt, hourLabel, monthLabel, monthNames } from "../lib/format";
+import { dateIt, durationIt, fmt, hourLabel, monthLabel, monthNames, pct } from "../lib/format";
+import { HeatmapGrid } from "../slides/HeatmapSlide";
 import { downloadNode, slug } from "../lib/share";
 import { useWrapped } from "../state/WrappedContext";
 import type { Participant } from "../lib/types";
+
+const revealUp: Variants = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" } },
+};
+const sectionReveal = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.08 },
+  transition: { duration: 0.55, ease: "easeOut" as const },
+};
 
 export function Recap() {
   const { data, viewerName, ingestFile, copyShareLink } = useWrapped();
   const navigate = useNavigate();
   const [allRank, setAllRank] = useState(false);
   const [query, setQuery] = useState("");
+  const [downloading, setDownloading] = useState<"cover" | "rank" | "award" | null>(null);
   const [chartYear, setChartYear] = useState<string | null>(null);
   const [selected, setSelected] = useState<Participant | null>(null);
   const coverRef = useRef<HTMLDivElement>(null);
@@ -52,15 +66,22 @@ export function Recap() {
   }
 
   async function saveCard(kind: "cover" | "rank" | "award") {
-    if (!data) return;
+    if (!data || downloading) return;
     const node = kind === "cover" ? coverRef.current : kind === "rank" ? rankRef.current : awardRef.current;
     if (!node) return;
-    const name = `${slug(data.chatName)}-${kind}.png`;
+    const files = {
+      cover: `${slug(data.chatName)}-copertina.png`,
+      rank: `${slug(data.chatName)}-top5.png`,
+      award: `${slug(data.chatName)}-premio.png`,
+    } as const;
+    setDownloading(kind);
     try {
-      await downloadNode(node, name);
+      await downloadNode(node, files[kind], CARD_BG[kind]);
       toast("Card scaricata");
     } catch {
       toast("Download non riuscito");
+    } finally {
+      setDownloading(null);
     }
   }
 
@@ -111,24 +132,24 @@ export function Recap() {
         </div>
       </header>
       <main className="wrap">
-        <section className="hero" id="inizio">
+        <motion.section className="hero" id="inizio" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.13 } } }}>
           <div>
-            <div className="eyebrow">
+            <motion.div className="eyebrow" variants={revealUp}>
               ✳ Una chat. Troppe notifiche. {data.participants.length} protagonisti.
-            </div>
-            <h1>
+            </motion.div>
+            <motion.h1 variants={revealUp}>
               {data.chatName}
               <br />
               <em>wrapped</em>
-            </h1>
-            <p className="hero-copy">
+            </motion.h1>
+            <motion.p className="hero-copy" variants={revealUp}>
               Il recap ufficiale: classifica, dizionario, ritmo e premi. Clicca un nome per vederne le abitudini.
-            </p>
-            <div className="range">
+            </motion.p>
+            <motion.div className="range" variants={revealUp}>
               ARCHIVIO DAL {dateIt(data.first).toUpperCase()} AL {dateIt(data.last).toUpperCase()}
-            </div>
+            </motion.div>
           </div>
-          <div className="cover" aria-label="Copertina del wrapped">
+          <motion.div className="cover" aria-label="Copertina del wrapped" variants={revealUp} whileHover={{ rotate: 0, scale: 1.025 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
             <div className="cover-top">
               <span>La stagione delle notifiche</span>
               <span>01 / 01</span>
@@ -149,25 +170,43 @@ export function Recap() {
               <span>Chat Wrapped</span>
               <span>WRAPPED ✳</span>
             </div>
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
 
-        <div className="stats">
-          <div className="stat">
+        <motion.div className="stats" initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.3 }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
+          <motion.div className="stat" variants={revealUp}>
             <strong>{fmt(data.total)}</strong>
             <span>messaggi nel periodo</span>
-          </div>
-          <div className="stat">
+          </motion.div>
+          <motion.div className="stat" variants={revealUp}>
             <strong>{data.participants.length}</strong>
             <span>partecipanti che hanno scritto</span>
-          </div>
-          <div className="stat">
+          </motion.div>
+          <motion.div className="stat" variants={revealUp}>
             <strong>{fmt(data.omittedMedia)}</strong>
             <span>segnaposto «media omessi»</span>
-          </div>
-        </div>
+          </motion.div>
+          {data.avgPerDay != null && (
+            <motion.div className="stat" variants={revealUp}>
+              <strong>{fmt(data.avgPerDay)}</strong>
+              <span>messaggi/giorno attivo</span>
+            </motion.div>
+          )}
+          {data.longestStreak && data.longestStreak.days >= 2 && (
+            <motion.div className="stat" variants={revealUp}>
+              <strong>{fmt(data.longestStreak.days)}</strong>
+              <span>giorni di fila (streak)</span>
+            </motion.div>
+          )}
+          {data.longestSilence && (
+            <motion.div className="stat" variants={revealUp}>
+              <strong>{durationIt(data.longestSilence.ms)}</strong>
+              <span>silenzio record</span>
+            </motion.div>
+          )}
+        </motion.div>
 
-        <section className="section" id="classifica">
+        <motion.section className="section" id="classifica" {...sectionReveal}>
           <div className="section-head">
             <div>
               <div className="kicker">01 / Chi tiene acceso il gruppo</div>
@@ -195,10 +234,12 @@ export function Recap() {
                     <div>
                       <div className="rank-name">{p.name}</div>
                       <div className="rank-bar">
-                        <i style={{ width: `${Math.max(2, (p.messages / maxMsg) * 100)}%` }} />
+                      <motion.i initial={{ scaleX: 0 }} whileInView={{ scaleX: Math.max(0.02, p.messages / maxMsg) }} viewport={{ once: true }} transition={{ duration: 0.7, delay: Math.min(i * 0.045, 0.35), ease: [0.22, 1, 0.36, 1] }} />
                       </div>
                     </div>
-                    <span className="rank-value">{fmt(p.messages)}</span>
+                    <span className="rank-value">
+                      {fmt(p.messages)} · {pct(p.messages, data.total)}%
+                    </span>
                   </button>
                 ))}
               </div>
@@ -211,7 +252,8 @@ export function Recap() {
               )}
             </div>
             {focus && (
-              <aside className="spotlight">
+              <AnimatePresence mode="wait" initial={false}>
+              <motion.aside className="spotlight" key={focus.name} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
                 <div>
                   <small>{focus === top ? "Il centralino umano" : "Scheda personale"}</small>
                   <h3>{focus.name}</h3>
@@ -226,14 +268,24 @@ export function Recap() {
                     {peakHour && peakHour[1] > 0 ? ` Ora preferita: ${hourLabel(peakHour[0])}.` : ""}
                     {` ${fmt(focus.nightMessages)} messagg${focus.nightMessages === 1 ? "io" : "i"} nel turno 00–05.`}
                     {` ${fmt(focus.starters)} riapertur${focus.starters === 1 ? "a" : "e"} dopo un buco di 4 ore.`}
+                    {focus.questions != null && focus.questions > 0
+                      ? ` ${fmt(focus.questions)} messagg${focus.questions === 1 ? "io" : "i"} con «?».`
+                      : ""}
+                    {focus.doubleTexts != null && focus.doubleTexts > 0
+                      ? ` ${fmt(focus.doubleTexts)} raffiche in doppio.`
+                      : ""}
+                    {focus.medianReplyMs != null
+                      ? ` Mediana risposta: ${durationIt(focus.medianReplyMs)}.`
+                      : ""}
                   </p>
                 </div>
-              </aside>
+              </motion.aside>
+              </AnimatePresence>
             )}
           </div>
-        </section>
+        </motion.section>
 
-        <section className="section" id="linguaggio">
+        <motion.section className="section" id="linguaggio" {...sectionReveal}>
           <div className="section-head">
             <div>
               <div className="kicker">02 / La lingua ufficiale</div>
@@ -328,9 +380,9 @@ export function Recap() {
               </article>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="section" id="ritmo">
+        <motion.section className="section" id="ritmo" {...sectionReveal}>
           <div className="section-head">
             <div>
               <div className="kicker">03 / Il calendario del caos</div>
@@ -369,7 +421,7 @@ export function Recap() {
                     title={`${monthNames[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}: ${fmt(n)} messaggi`}
                   >
                     <span className="month-val">{fmt(n)}</span>
-                    <i className="month-bar" style={{ height: `${Math.max(2, (n / monthMax) * 100)}%` }} />
+                    <motion.i className="month-bar" initial={{ scaleY: 0 }} whileInView={{ scaleY: Math.max(0.02, n / monthMax) }} viewport={{ once: true }} transition={{ duration: 0.65, delay: 0.12, ease: [0.22, 1, 0.36, 1] }} />
                     <span className="month-label">{monthNames[Number(m.slice(5)) - 1]}</span>
                   </div>
                 ))}
@@ -407,9 +459,41 @@ export function Recap() {
             </div>
             <span>{fmt(data.peakDay[1])} messaggi</span>
           </div>
-        </section>
+          {data.heatmap?.some((n) => n > 0) && (
+            <div className="chart-panel" style={{ marginTop: 20 }}>
+              <div className="chart-title">
+                <h3>Mappa termica · lun–dom × 24h</h3>
+              </div>
+              <HeatmapGrid cells={data.heatmap} max={Math.max(...data.heatmap)} />
+            </div>
+          )}
+          {(data.longestSilence || data.lastMessage?.name) && (
+            <div className="rhythm-callouts">
+              {data.longestSilence && (
+                <div className="callout">
+                  <div>
+                    <small>Silenzio record</small>
+                    <strong>{durationIt(data.longestSilence.ms)}</strong>
+                  </div>
+                  <span>
+                    Dal {dateIt(data.longestSilence.from)} al {dateIt(data.longestSilence.to)}
+                  </span>
+                </div>
+              )}
+              {data.lastMessage?.name && (
+                <div className="callout">
+                  <div>
+                    <small>Ultima parola</small>
+                    <strong>{data.lastMessage.name}</strong>
+                  </div>
+                  <span>{dateIt(data.lastMessage.at)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </motion.section>
 
-        <section className="section" id="premi">
+        <motion.section className="section" id="premi" {...sectionReveal}>
           <div className="section-head">
             <div>
               <div className="kicker">04 / Riconoscimenti non richiesti</div>
@@ -437,7 +521,7 @@ export function Recap() {
           </div>
           <div className="awards-grid">
             {awards.map((a) => (
-              <article className="award" key={a.name}>
+              <motion.article className="award" key={a.name} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.15 }} transition={{ duration: 0.4, delay: Math.min(awards.indexOf(a) * 0.035, 0.3) }} whileHover={{ y: -5, borderColor: "#d4ff55" }}>
                 <div className="award-emoji">{a.emoji}</div>
                 <div>
                   <h3>
@@ -445,13 +529,13 @@ export function Recap() {
                   </h3>
                   <p>{a.description}</p>
                 </div>
-              </article>
+              </motion.article>
             ))}
             {!awards.length && <div className="empty">Nessun partecipante trovato.</div>}
           </div>
-        </section>
+        </motion.section>
 
-        <section className="finale">
+        <motion.section className="finale" {...sectionReveal}>
           <small>Il verdetto finale</small>
           <h2>
             {fmt(data.total)} messaggi per decidere, probabilmente, dove vedersi.
@@ -479,20 +563,38 @@ export function Recap() {
             <button className="soft-button" type="button" onClick={() => void copyVerdict()}>
               Copia il verdetto
             </button>
-            <button className="soft-button" type="button" onClick={() => void saveCard("cover")}>
-              Scarica copertina
-            </button>
-            <button className="soft-button" type="button" onClick={() => void saveCard("rank")}>
-              Scarica top 5
-            </button>
-            <button className="soft-button" type="button" onClick={() => void saveCard("award")}>
-              Scarica premio
-            </button>
             <button className="soft-button" type="button" onClick={() => navigate("/show")}>
               Rivedi lo show
             </button>
           </div>
-        </section>
+          <p className="share-downloads-label">Card PNG da mandare</p>
+          <div className="share-row">
+            <button
+              className="download-button"
+              type="button"
+              disabled={downloading !== null}
+              onClick={() => void saveCard("cover")}
+            >
+              {downloading === "cover" ? "Preparazione…" : "Scarica copertina"}
+            </button>
+            <button
+              className="download-button"
+              type="button"
+              disabled={downloading !== null}
+              onClick={() => void saveCard("rank")}
+            >
+              {downloading === "rank" ? "Preparazione…" : "Scarica top 5"}
+            </button>
+            <button
+              className="download-button"
+              type="button"
+              disabled={downloading !== null}
+              onClick={() => void saveCard("award")}
+            >
+              {downloading === "award" ? "Preparazione…" : "Scarica premio"}
+            </button>
+          </div>
+        </motion.section>
         <footer className="data-note">
           <div>
             <b>Metodo, senza magia.</b> Analisi fatta solo sulle righe datate riconosciute nell’esportazione. Le parole

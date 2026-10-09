@@ -23,7 +23,7 @@ export function ToastHost() {
   }, []);
 
   return (
-    <div className={`toast${show ? " show" : ""}`} role="status">
+    <div className={`toast${show ? " toast-on" : ""}`} role="status">
       {message}
     </div>
   );

@@ -1,18 +1,22 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { CoverShareCard } from "../components/ShareCards";
+import { CARD_BG, CoverShareCard } from "../components/ShareCards";
 import { downloadNode, slug } from "../lib/share";
 import { AwardsSlide } from "../slides/AwardsSlide";
 import { CoverSlide } from "../slides/CoverSlide";
 import { DictionarySlide } from "../slides/DictionarySlide";
 import { EmojiSlide } from "../slides/EmojiSlide";
 import { FinaleSlide } from "../slides/FinaleSlide";
+import { FunFactsSlide } from "../slides/FunFactsSlide";
+import { HeatmapSlide } from "../slides/HeatmapSlide";
 import { HoursSlide } from "../slides/HoursSlide";
 import { LeaderSlide } from "../slides/LeaderSlide";
 import { PeakDaySlide } from "../slides/PeakDaySlide";
 import { PhraseSlide } from "../slides/PhraseSlide";
+import { QuizLastSlide } from "../slides/QuizLastSlide";
 import { QuizSlide } from "../slides/QuizSlide";
+import { funFacts } from "../lib/funFacts";
 import type { SlideProps } from "../slides/types";
 import { WhoAreYouSlide } from "../slides/WhoAreYouSlide";
 import { useWrapped } from "../state/WrappedContext";
@@ -37,8 +41,15 @@ export function Show() {
     }
     if (data.participants[0]) list.push({ id: "leader", node: (p) => <LeaderSlide {...p} /> });
     if (data.participants.length > 1) list.push({ id: "quiz", node: (p) => <QuizSlide {...p} /> });
+    if (data.participants.length > 1 && data.lastMessage?.name) {
+      list.push({ id: "quizLast", node: (p) => <QuizLastSlide {...p} /> });
+    }
     if (data.hours.length) list.push({ id: "hours", node: (p) => <HoursSlide {...p} /> });
+    if (data.heatmap?.some((n) => n > 0)) {
+      list.push({ id: "heatmap", node: (p) => <HeatmapSlide {...p} /> });
+    }
     if (data.peakDay[0] !== "—") list.push({ id: "peak", node: (p) => <PeakDaySlide {...p} /> });
+    if (funFacts(data).length) list.push({ id: "funfacts", node: (p) => <FunFactsSlide {...p} /> });
     if (data.words.length || data.bigrams.length) {
       list.push({ id: "dict", node: (p) => <DictionarySlide {...p} /> });
     }
@@ -70,7 +81,7 @@ export function Show() {
     onRecap: () => navigate("/recap"),
     onDownloadCover: () => {
       if (!coverRef.current) return;
-      void downloadNode(coverRef.current, `${slug(data.chatName)}-copertina.png`)
+      void downloadNode(coverRef.current, `${slug(data.chatName)}-copertina.png`, CARD_BG.cover)
         .then(() => toast("Copertina scaricata"))
         .catch(() => toast("Download non riuscito, prova dal recap"));
     },
@@ -114,7 +125,9 @@ export function Show() {
     >
       <div className="show-progress" aria-hidden="true">
         {slides.map((s, i) => (
-          <i key={s.id} className={i <= index ? "on" : ""} />
+          <i key={s.id} className={i <= index ? "on" : ""}>
+            {i === index && <span />}
+          </i>
         ))}
       </div>
       <div className="show-bar">
@@ -125,34 +138,36 @@ export function Show() {
           Salta al recap
         </button>
       </div>
-      <div className="show-stage">
-        <AnimatePresence mode="wait" custom={dir}>
-          <motion.div
-            key={slides[index].id}
-            custom={dir}
-            initial={{ opacity: 0, x: dir * 48 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: dir * -48 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            {slides[index].node(props)}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      <div className="show-nav">
-        <button type="button" className="soft-button" onClick={() => go(index - 1)} disabled={index === 0}>
-          Indietro
-        </button>
-        {index < slides.length - 1 ? (
-          <button type="button" className="solid-button" onClick={() => go(index + 1)}>
-            Avanti
+      <div className="show-body">
+        <div className="show-stage">
+          <AnimatePresence mode="wait" custom={dir}>
+            <motion.div
+              className="show-slide"
+              key={slides[index].id}
+              custom={dir}
+              initial={{ opacity: 0, x: dir * 56, scale: 0.97, filter: "blur(8px)" }}
+              animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, x: dir * -32, scale: 0.985, filter: "blur(4px)" }}
+              transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {slides[index].node(props)}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <div className="show-nav">
+          <button type="button" className="soft-button" onClick={() => go(index - 1)} disabled={index === 0}>
+            Indietro
           </button>
-        ) : (
-          <button type="button" className="solid-button" onClick={() => navigate("/recap")}>
-            Recap
-          </button>
-        )}
+          {index < slides.length - 1 ? (
+            <button type="button" className="solid-button" onClick={() => go(index + 1)}>
+              Avanti
+            </button>
+          ) : (
+            <button type="button" className="solid-button" onClick={() => navigate("/recap")}>
+              Recap
+            </button>
+          )}
+        </div>
       </div>
       <div className="offscreen-share" aria-hidden="true">
         <CoverShareCard ref={coverRef} data={data} />

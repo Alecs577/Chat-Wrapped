@@ -1,4 +1,4 @@
-import { fmt } from "./format";
+import { durationIt, fmt } from "./format";
 import type { Award, WrappedData } from "./types";
 
 export function participantAwards(data: WrappedData): Award[] {
@@ -26,6 +26,38 @@ export function participantAwards(data: WrappedData): Award[] {
         title: "Chi riaccende la chat",
         emoji: "🔌",
         description: `${fmt(p.starters)} volte ha scritto dopo un buco di almeno quattro ore. Qualcuno doveva pur cominciare.`,
+      };
+    }
+    if (data.lastMessage?.name === p.name) {
+      return {
+        name: p.name,
+        title: "L’ultima parola",
+        emoji: "👋",
+        description: `Ultimo messaggio datato del gruppo. Chi chiude, chiude — e qui ha chiuso davvero.`,
+      };
+    }
+    if (data.doubleTexter?.name === p.name) {
+      return {
+        name: p.name,
+        title: "Il mitra",
+        emoji: "🔫",
+        description: `${fmt(data.doubleTexter.count)} raffiche da due messaggi di fila o più. Il tasto invio non ha la sicura.`,
+      };
+    }
+    if (data.fastestReply?.name === p.name) {
+      return {
+        name: p.name,
+        title: "Il lampo",
+        emoji: "⚡",
+        description: `Mediana di risposta: ${durationIt(data.fastestReply.medianMs)}. Le notifiche erano ancora calde.`,
+      };
+    }
+    if (data.questionAsker?.name === p.name) {
+      return {
+        name: p.name,
+        title: "L’inquisitore",
+        emoji: "❓",
+        description: `${fmt(data.questionAsker.count)} messaggi con un punto interrogativo. Il gruppo aveva un quiz show non richiesto.`,
       };
     }
     if (p.topEmoji && p.topEmojiCount >= 2) {
@@ -61,6 +93,10 @@ export function flashAwards(data: WrappedData): Award[] {
     all.find((a) => a.title === "Il centralino umano"),
     all.find((a) => a.title === "Il gufo"),
     all.find((a) => a.title === "Chi riaccende la chat"),
+    all.find((a) => a.title === "L’ultima parola"),
+    all.find((a) => a.title === "Il mitra"),
+    all.find((a) => a.title === "Il lampo"),
+    all.find((a) => a.title === "L’inquisitore"),
     all.find((a) => a.title === "Comparsa con tempismo"),
     all.find((a) => a.title === "Firma in emoji"),
   ];

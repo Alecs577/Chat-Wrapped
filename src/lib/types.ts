@@ -15,6 +15,10 @@ export type Participant = {
   weekendMessages: number;
   weekdayMessages: number;
   hours: number[];
+  questions?: number;
+  doubleTexts?: number;
+  medianReplyMs?: number | null;
+  lastMessageAt?: string;
 };
 
 export type PhraseGroup = {
@@ -48,6 +52,15 @@ export type WrappedData = {
   reactionAnnotations: number;
   nightOwl: { name: string; count: number } | null;
   conversationStarter: { name: string; count: number } | null;
+  avgPerDay?: number;
+  activeDays?: number;
+  longestStreak?: { days: number; start: string; end: string } | null;
+  longestSilence?: { ms: number; from: string; to: string } | null;
+  lastMessage?: { name: string; at: string };
+  fastestReply?: { name: string; medianMs: number } | null;
+  doubleTexter?: { name: string; count: number } | null;
+  questionAsker?: { name: string; count: number } | null;
+  heatmap?: number[];
 };
 
 export type ChatMessage = {

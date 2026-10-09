@@ -35,3 +35,17 @@ export const toIsoDate = (date: Date) => {
 };
 
 export const hourLabel = (h: number) => `${String(h).padStart(2, "0")}:00`;
+
+export const pct = (part: number, total: number) =>
+  total > 0 ? Math.round((part / total) * 100) : 0;
+
+export const durationIt = (ms: number) => {
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec} second${sec === 1 ? "o" : "i"}`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min} minut${min === 1 ? "o" : "i"}`;
+  const ore = Math.round(min / 60);
+  if (ore < 48) return `${ore} or${ore === 1 ? "a" : "e"}`;
+  const giorni = Math.round(ore / 24);
+  return `${giorni} giorn${giorni === 1 ? "o" : "i"}`;
+};

@@ -21,8 +21,8 @@ export function FinaleSlide({ data, onRecap, onDownloadCover, onShareLink }: Sli
         <button type="button" className="soft-button" onClick={onRecap}>
           Esplora il recap
         </button>
-        <button type="button" className="soft-button" onClick={onDownloadCover}>
-          Scarica la copertina
+        <button type="button" className="download-button" onClick={onDownloadCover}>
+          Scarica copertina PNG
         </button>
       </div>
     </div>

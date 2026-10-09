@@ -1,4 +1,5 @@
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { MotionConfig } from "motion/react";
 import { NeedData } from "./components/NeedData";
 import { ToastHost } from "./components/Toast";
 import { Landing } from "./pages/Landing";
@@ -11,6 +12,7 @@ export function App() {
   return (
     <WrappedProvider>
       <HashRouter>
+        <MotionConfig reducedMotion="user">
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/w/:id" element={<Shared />} />
@@ -32,6 +34,7 @@ export function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </MotionConfig>
       </HashRouter>
       <ToastHost />
     </WrappedProvider>

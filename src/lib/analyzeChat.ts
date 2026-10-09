@@ -50,7 +50,28 @@ type PersonAgg = {
   weekendMessages: number;
   weekdayMessages: number;
   hours: number[];
+  questions: number;
+  doubleTexts: number;
+  replyMs: number[];
+  lastMessageAt: string;
 };
+
+function medianMs(values: number[]): number | null {
+  if (!values.length) return null;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  if (s.length % 2) return s[mid];
+  return Math.round((s[mid - 1] + s[mid]) / 2);
+}
+
+function isCountableBody(body: string): boolean {
+  const key = body
+    .toLowerCase()
+    .replace(/[\u200e\u200f\u202a\u202c]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return Boolean(key) && !IGNORED_BODY.test(body) && !DELETED.test(key);
+}
 
 function topMap<T>(map: Map<T, number>, n: number, byValue = true): CountPair<T>[] {
   const list = [...map.entries()] as CountPair<T>[];
@@ -72,6 +93,10 @@ function emptyPerson(name: string): PersonAgg {
     weekendMessages: 0,
     weekdayMessages: 0,
     hours: Array.from({ length: 24 }, () => 0),
+    questions: 0,
+    doubleTexts: 0,
+    replyMs: [],
+    lastMessageAt: "",
   };
 }
 
@@ -169,6 +194,7 @@ export function analyzeChat(
   const sorted = [...scoped].sort((a, b) => a.date.getTime() - b.date.getTime());
   let prevTime = 0;
   const FOUR_HOURS = 4 * 60 * 60 * 1000;
+  const heatmap = Array.from({ length: 168 }, () => 0);
 
   for (const m of sorted) {
     let p = people.get(m.name);
@@ -229,6 +255,75 @@ export function analyzeChat(
     const mo = `${m.date.getFullYear()}-${String(m.date.getMonth() + 1).padStart(2, "0")}`;
     months.set(mo, (months.get(mo) || 0) + 1);
     days.set(toIsoDate(m.date), (days.get(toIsoDate(m.date)) || 0) + 1);
+
+    p.lastMessageAt = toIsoDate(m.date);
+    const wdIdx = (m.date.getDay() + 6) % 7;
+    heatmap[wdIdx * 24 + hour] += 1;
+    if (isCountableBody(m.body) && m.body.includes("?")) p.questions += 1;
+  }
+
+  const REPLY_MIN = 2000;
+  const REPLY_MAX = 2 * 60 * 60 * 1000;
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  let longestSilence: { ms: number; from: string; to: string } | null = null;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const curr = sorted[i];
+    const dt = curr.date.getTime() - prev.date.getTime();
+    if (dt >= SIX_HOURS && (!longestSilence || dt > longestSilence.ms)) {
+      longestSilence = { ms: dt, from: toIsoDate(prev.date), to: toIsoDate(curr.date) };
+    }
+    if (prev.name !== curr.name && dt >= REPLY_MIN && dt <= REPLY_MAX) {
+      const person = people.get(curr.name);
+      if (person) person.replyMs.push(dt);
+    }
+  }
+
+  let burstAuthor: string | null = null;
+  let burstLen = 0;
+  for (const m of sorted) {
+    if (m.name === burstAuthor) {
+      burstLen += 1;
+    } else {
+      if (burstAuthor && burstLen >= 2) {
+        const person = people.get(burstAuthor);
+        if (person) person.doubleTexts += 1;
+      }
+      burstAuthor = m.name;
+      burstLen = 1;
+    }
+  }
+  if (burstAuthor && burstLen >= 2) {
+    const person = people.get(burstAuthor);
+    if (person) person.doubleTexts += 1;
+  }
+
+  const uniqueDays = [...new Set(sorted.map((m) => toIsoDate(m.date)))].sort();
+  const activeDays = uniqueDays.length;
+  let longestStreak: { days: number; start: string; end: string } | null = null;
+  if (uniqueDays.length) {
+    let streakStart = uniqueDays[0];
+    let streakLen = 1;
+    let bestStreak = { days: 1, start: uniqueDays[0], end: uniqueDays[0] };
+    for (let i = 1; i < uniqueDays.length; i++) {
+      const prev = new Date(`${uniqueDays[i - 1]}T12:00:00`);
+      const next = new Date(prev);
+      next.setDate(next.getDate() + 1);
+      if (toIsoDate(next) === uniqueDays[i]) {
+        streakLen += 1;
+      } else {
+        if (streakLen > bestStreak.days) {
+          bestStreak = { days: streakLen, start: streakStart, end: uniqueDays[i - 1] };
+        }
+        streakStart = uniqueDays[i];
+        streakLen = 1;
+      }
+    }
+    if (streakLen > bestStreak.days) {
+      bestStreak = { days: streakLen, start: streakStart, end: uniqueDays[uniqueDays.length - 1] };
+    }
+    longestStreak = bestStreak;
   }
 
   const nameTokens = new Set(
@@ -267,9 +362,54 @@ export function analyzeChat(
         weekendMessages: p.weekendMessages,
         weekdayMessages: p.weekdayMessages,
         hours: p.hours,
+        questions: p.questions,
+        doubleTexts: p.doubleTexts,
+        medianReplyMs: medianMs(p.replyMs),
+        lastMessageAt: p.lastMessageAt,
       };
     })
     .sort((a, b) => b.messages - a.messages);
+
+  const minReplies = scoped.length < 80 ? 2 : 3;
+  const withReplies = participants.filter((p) => {
+    const agg = people.get(p.name);
+    return agg && agg.replyMs.length >= minReplies && p.medianReplyMs != null;
+  });
+  const fastest =
+    withReplies.length
+      ? [...withReplies].sort((a, b) => (a.medianReplyMs ?? Infinity) - (b.medianReplyMs ?? Infinity))[0]
+      : null;
+  const fastestUnique =
+    fastest &&
+    withReplies.filter((p) => p.medianReplyMs === fastest.medianReplyMs).length === 1
+      ? { name: fastest.name, medianMs: fastest.medianReplyMs! }
+      : null;
+
+  const dtMax = participants.reduce(
+    (best, p) => ((p.doubleTexts ?? 0) > (best.doubleTexts ?? 0) ? p : best),
+    participants[0]
+  );
+  const dtCount = dtMax?.doubleTexts ?? 0;
+  const doubleTexter =
+    dtMax &&
+    dtCount >= 2 &&
+    participants.filter((p) => (p.doubleTexts ?? 0) === dtCount).length === 1
+      ? { name: dtMax.name, count: dtCount }
+      : null;
+
+  const qMax = participants.reduce(
+    (best, p) => ((p.questions ?? 0) > (best.questions ?? 0) ? p : best),
+    participants[0]
+  );
+  const qCount = qMax?.questions ?? 0;
+  const questionAsker =
+    qMax &&
+    qCount >= 3 &&
+    participants.filter((p) => (p.questions ?? 0) === qCount).length === 1
+      ? { name: qMax.name, count: qCount }
+      : null;
+
+  const lastMsg = sorted[sorted.length - 1];
 
   const extra = recordStats(scoped);
   const years = [
@@ -311,5 +451,14 @@ export function analyzeChat(
       starter && starter.starters >= 3
         ? { name: starter.name, count: starter.starters }
         : null,
+    avgPerDay: Math.round(scoped.length / Math.max(1, activeDays)),
+    activeDays,
+    longestStreak,
+    longestSilence,
+    lastMessage: { name: lastMsg.name, at: toIsoDate(lastMsg.date) },
+    fastestReply: fastestUnique,
+    doubleTexter,
+    questionAsker,
+    heatmap,
   };
 }

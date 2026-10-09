@@ -1,5 +1,5 @@
 import { CountUp } from "../components/CountUp";
-import { fmt } from "../lib/format";
+import { fmt, pct } from "../lib/format";
 import type { SlideProps } from "./types";
 
 export function LeaderSlide({ data, viewerName }: SlideProps) {
@@ -15,7 +15,7 @@ export function LeaderSlide({ data, viewerName }: SlideProps) {
         <CountUp value={top.messages} />
       </div>
       <p className="lead">
-        messaggi. Il tasto «silenzia» è stato informato.
+        messaggi. Il {pct(top.messages, data.total)}% della chat. Il tasto «silenzia» è stato informato.
         {you === 0
           ? " Sei tu: la chat aveva un addetto stampa e non lo sapeva."
           : you > 0
