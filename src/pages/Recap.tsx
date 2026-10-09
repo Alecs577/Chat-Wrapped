@@ -9,7 +9,7 @@ import { useWrapped } from "../state/WrappedContext";
 import type { Participant } from "../lib/types";
 
 export function Recap() {
-  const { data, viewerName, ingestFile } = useWrapped();
+  const { data, viewerName, ingestFile, copyShareLink } = useWrapped();
   const navigate = useNavigate();
   const [allRank, setAllRank] = useState(false);
   const [query, setQuery] = useState("");
@@ -463,6 +463,19 @@ export function Recap() {
             un’orchestra e il volume di uno stadio.
           </p>
           <div className="share-row">
+            <button
+              className="soft-button"
+              type="button"
+              onClick={() => {
+                void copyShareLink()
+                  .then(() => toast("Link copiato. Mandalo in chat: chi lo apre vede lo show."))
+                  .catch((err: unknown) =>
+                    toast(err instanceof Error ? err.message : "Condivisione non riuscita")
+                  );
+              }}
+            >
+              Copia link per gli amici
+            </button>
             <button className="soft-button" type="button" onClick={() => void copyVerdict()}>
               Copia il verdetto
             </button>
@@ -484,7 +497,7 @@ export function Recap() {
           <div>
             <b>Metodo, senza magia.</b> Analisi fatta solo sulle righe datate riconosciute nell’esportazione. Le parole
             sono ricavate dal testo visibile; i messaggi eliminati e i media non leggibili non vengono ricostruiti. Il
-            file non lascia il browser.
+            file resta sul tuo dispositivo. Se copi il link per gli amici, partono solo le statistiche, non lo zip.
           </div>
           <span>
             ARCHIVIO: {fmt(data.total)} MESSAGGI · {data.anomalies} DATE FUORI INTERVALLO ESCLUSE DAI GRAFICI

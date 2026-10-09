@@ -3,6 +3,7 @@ import { NeedData } from "./components/NeedData";
 import { ToastHost } from "./components/Toast";
 import { Landing } from "./pages/Landing";
 import { Recap } from "./pages/Recap";
+import { Shared } from "./pages/Shared";
 import { Show } from "./pages/Show";
 import { WrappedProvider } from "./state/WrappedContext";
 
@@ -12,6 +13,7 @@ export function App() {
       <HashRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/w/:id" element={<Shared />} />
           <Route
             path="/show"
             element={

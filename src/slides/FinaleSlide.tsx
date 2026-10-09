@@ -1,7 +1,7 @@
 import { fmt, monthLabel } from "../lib/format";
 import type { SlideProps } from "./types";
 
-export function FinaleSlide({ data, onRecap, onDownloadCover }: SlideProps) {
+export function FinaleSlide({ data, onRecap, onDownloadCover, onShareLink }: SlideProps) {
   const top = data.participants[0];
   const peakMonth = [...data.months].sort((a, b) => b[1] - a[1])[0];
   return (
@@ -15,7 +15,10 @@ export function FinaleSlide({ data, onRecap, onDownloadCover }: SlideProps) {
         Ora puoi esplorare i numeri, o portare via la copertina.
       </p>
       <div className="share-row">
-        <button type="button" className="solid-button" onClick={onRecap}>
+        <button type="button" className="solid-button" onClick={onShareLink}>
+          Copia link per gli amici
+        </button>
+        <button type="button" className="soft-button" onClick={onRecap}>
           Esplora il recap
         </button>
         <button type="button" className="soft-button" onClick={onDownloadCover}>

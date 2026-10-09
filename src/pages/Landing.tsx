@@ -89,14 +89,29 @@ export function Landing() {
           }}
         >
           <div>
-            <h2>{parsing ? "Sto contando." : ready ? ready.chatName : "Trascina lo zip"}</h2>
+            <h2>
+              {parsing ? "Sto contando." : ready ? ready.chatName : data ? data.chatName : "Trascina lo zip"}
+            </h2>
             {parsing && (
               <p>
                 Messaggi riconosciuti: <b className="parse-meter">{fmt(parseCount)}</b>
               </p>
             )}
-            {!parsing && !ready && (
+            {data && !ready && !parsing && (
+              <div className="share-row" style={{ margin: "10px 0 16px" }}>
+                <button type="button" className="solid-button" onClick={() => navigate("/show")}>
+                  Rivedi lo show
+                </button>
+                <button type="button" className="soft-button" onClick={() => navigate("/recap")}>
+                  Apri il recap
+                </button>
+              </div>
+            )}
+            {!parsing && !ready && !data && (
               <p>Oppure clicca e scegli lo zip di WhatsApp. Meglio senza media: serve solo il testo.</p>
+            )}
+            {!parsing && !ready && data && (
+              <p>Puoi rivederlo o caricare un altro zip. Il file originale non è sul server.</p>
             )}
             {ready && !parsing && (
               <>
@@ -152,7 +167,8 @@ export function Landing() {
               </button>
             )}
             <p className="privacy-note">
-              Analisi locale. Nessun account, nessun server, nessun URL pubblico del wrapped altrui.
+              L’analisi è locale. Il link per gli amici pubblica solo le statistiche (non lo zip) su uno store
+              anonimo: chi ha l’URL vede lo show. Il link può scadere dopo qualche settimana.
             </p>
           </div>
         </div>

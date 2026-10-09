@@ -7,4 +7,5 @@ export type SlideProps = {
   onNext: () => void;
   onRecap: () => void;
   onDownloadCover: () => void;
+  onShareLink: () => void;
 };

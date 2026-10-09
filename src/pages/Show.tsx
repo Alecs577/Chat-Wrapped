@@ -19,7 +19,7 @@ import { useWrapped } from "../state/WrappedContext";
 import { toast } from "../components/Toast";
 
 export function Show() {
-  const { data, viewerName, setViewerName } = useWrapped();
+  const { data, viewerName, setViewerName, copyShareLink } = useWrapped();
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState(1);
@@ -73,6 +73,13 @@ export function Show() {
       void downloadNode(coverRef.current, `${slug(data.chatName)}-copertina.png`)
         .then(() => toast("Copertina scaricata"))
         .catch(() => toast("Download non riuscito, prova dal recap"));
+    },
+    onShareLink: () => {
+      void copyShareLink()
+        .then(() => toast("Link copiato. Mandalo in chat: chi lo apre vede lo show."))
+        .catch((err: unknown) =>
+          toast(err instanceof Error ? err.message : "Condivisione non riuscita")
+        );
     },
   };
 
